@@ -26,3 +26,5 @@ coverage
 
 # bower_components
 bower_components
+output
+dist

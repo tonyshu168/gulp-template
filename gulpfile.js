@@ -12,6 +12,11 @@ const fs = require('fs'),
       babel = require('gulp-babel'),
       autoprefixer = require('gulp-autoprefixer'),
       less = require('gulp-less');
+const ts = require('gulp-typescript'),
+      tsProject = ts.createProject('tsconfig.json'),
+      tsify = require('tsify');
+
+const { serve } = require('./server');
       
 // 1
 // function bundleJs( cb ) {
@@ -49,10 +54,11 @@ function bundleJs( ) {
 
 function injectFun() {
   const target = gulp.src('./src/index.html');
-  const sources = gulp.src(['./output/**/*.js'], { read: false}, {relative: true});
+  const sources = gulp.src(['./output/**/*.js', './output/**/*.css'], { read: false}, {relative: true});
 
   target.pipe(inject(sources))
-  .pipe(gulp.dest('./src'));
+  .pipe(gulp.dest('./output'));
+
 }
 
 // gulp.task('index', function() {
@@ -72,10 +78,47 @@ function lessTask() {
   .pipe(gulp.dest('./output'))
 }
 
+function injectCss() {
+  const target = gulp.src('./dist/index.html');
+  const sources = gulp.src(['./output/**/*.css'], { read: false}, { relative: true });
+
+  target.pipe(inject(sources))
+  .pipe(gulp.dest('./dist'));
+}
+
 function defaultTask( cb ) {
   bundleJs();
+  handleTs();
   cb();
 }
 
+function handleTs() {
+  // tsProject.src()
+  //   .pipe(tsProject())
+  //   .js.pipe(gulp.dest('./output/ts'));
+
+  const b = browserify({
+    entries: ['./src/main.ts'],
+    cache: {},
+    packageCache: {},
+    plugin: [watchify, tsify]
+  })
+
+  b.on('update', bundle);
+  bundle();
+
+  function bundle() {
+    b.bundle().on('error', console.error)
+    .pipe(source('bundleTs.js'))
+    .pipe(buffer())
+    .pipe(sourcemaps.init())
+    .pipe(babel({presets: ['@babel/env']}))
+    .pipe(sourcemaps.write('.'))
+    .pipe(gif(isProduction, uglify()))
+    .pipe(gulp.dest('./output/ts'))
+  }
+}
+
+
 // exports.default = defaultTask;
-exports.default = gulp.parallel(defaultTask, injectFun, lessTask);
+exports.default = gulp.parallel(gulp.series(defaultTask, injectFun), lessTask);
